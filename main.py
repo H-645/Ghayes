@@ -1,71 +1,23 @@
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))  # DON'T CHANGE THIS !!!
-
-from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask_login import login_user, logout_user, login_required, current_user
 import datetime
 import os
 from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash
 import uuid
 
-# استيراد النماذج والمسارات
-from src.models.models import db, User, Analysis, ROLE_ADMIN
-from src.routes.admin import admin_bp
-from src.routes.market_api import market_bp
+from src import db
+from src.models.models import User, Analysis, ROLE_ADMIN
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chicha_ai_secret_key')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///chicha_ai.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/uploads')
+main_bp = Blueprint('main', __name__)
 
-# تهيئة قاعدة البيانات
-db.init_app(app)
-
-# تهيئة نظام تسجيل الدخول
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
-
-# تسجيل المسارات
-app.register_blueprint(admin_bp)
-app.register_blueprint(market_bp)
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
-# دالة لإنشاء الجداول وحساب المسؤول
-def create_tables_and_admin():
-    with app.app_context():
-        db.create_all()
-        
-        # إنشاء مستخدم المسؤول إذا لم يكن موجوداً
-        admin = User.query.filter_by(username='admin').first()
-        if not admin:
-            admin = User(
-                username='admin',
-                email='admin@chicha.ai',
-                role=ROLE_ADMIN,
-                is_active=True
-            )
-            admin.set_password('admin123')
-            db.session.add(admin)
-            db.session.commit()
-
-# استدعاء دالة إنشاء الجداول وحساب المسؤول
-create_tables_and_admin()
-
-@app.route('/')
+@main_bp.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/login', methods=['GET', 'POST'])
+@main_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
         username = request.form.get('username')
@@ -76,16 +28,16 @@ def login():
         if user and user.check_password(password) and user.is_active:
             login_user(user)
             user.update_last_login()
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('main.dashboard'))
         else:
             flash('اسم المستخدم أو كلمة المرور غير صحيحة', 'danger')
     
     return render_template('login.html')
 
-@app.route('/register', methods=['GET', 'POST'])
+@main_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
         username = request.form.get('username')
@@ -106,17 +58,17 @@ def register():
         db.session.commit()
         
         flash('تم إنشاء الحساب بنجاح، يمكنك الآن تسجيل الدخول', 'success')
-        return redirect(url_for('login'))
+        return redirect(url_for('main.login'))
     
     return render_template('register.html')
 
-@app.route('/logout')
+@main_bp.route('/logout')
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('index'))
+    return redirect(url_for('main.index'))
 
-@app.route('/dashboard')
+@main_bp.route('/dashboard')
 @login_required
 def dashboard():
     # الحصول على تحليلات المستخدم
@@ -144,7 +96,7 @@ def dashboard():
                           users=users,
                           current_date=datetime.datetime.now().strftime('%Y-%m-%d'))
 
-@app.route('/analyze_chart', methods=['GET', 'POST'])
+@main_bp.route('/analyze_chart', methods=['GET', 'POST'])
 @login_required
 def analyze_chart():
     if request.method == 'POST':
@@ -168,10 +120,11 @@ def analyze_chart():
             unique_filename = f"{uuid.uuid4().hex}_{filename}"
             
             # التأكد من وجود مجلد التحميل
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            upload_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static/uploads')
+            os.makedirs(upload_folder, exist_ok=True)
             
             # حفظ الملف
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            file_path = os.path.join(upload_folder, unique_filename)
             file.save(file_path)
             
             # الحصول على معلومات التحليل
@@ -196,11 +149,11 @@ def analyze_chart():
             db.session.commit()
             
             # توجيه المستخدم إلى صفحة نتائج التحليل
-            return redirect(url_for('analysis_result', analysis_id=analysis.id))
+            return redirect(url_for('main.analysis_result', analysis_id=analysis.id))
     
     return render_template('analyze.html')
 
-@app.route('/analysis_result/<int:analysis_id>')
+@main_bp.route('/analysis_result/<int:analysis_id>')
 @login_required
 def analysis_result(analysis_id):
     # الحصول على التحليل
@@ -209,7 +162,7 @@ def analysis_result(analysis_id):
     # التحقق من أن التحليل ينتمي للمستخدم الحالي
     if analysis.user_id != current_user.id and current_user.role != ROLE_ADMIN:
         flash('غير مصرح لك بالوصول إلى هذا التحليل', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('main.dashboard'))
     
     # بيانات التحليل (يمكن استبدالها بنتائج تحليل حقيقية)
     data = {
@@ -236,12 +189,12 @@ def analysis_result(analysis_id):
     
     return render_template('analysis_result.html', analysis=analysis, data=data)
 
-@app.route('/chat')
+@main_bp.route('/chat')
 @login_required
 def chat():
     return render_template('chat.html')
 
-@app.route('/api/chat', methods=['POST'])
+@main_bp.route('/api/chat', methods=['POST'])
 @login_required
 def api_chat():
     message = request.json.get('message', '')
@@ -273,7 +226,7 @@ def api_chat():
     
     return jsonify({'response': response})
 
-@app.route('/trading_plan')
+@main_bp.route('/trading_plan')
 @login_required
 def trading_plan():
     return render_template('trading_plan.html')
@@ -282,6 +235,3 @@ def allowed_file(filename):
     """التحقق من أن امتداد الملف مسموح به"""
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
