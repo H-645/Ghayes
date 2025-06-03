@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}تحليل الشارت - Chicha AI{% endblock %}
+
+{% block content %}
+<div class="chart-analysis">
+    <h2>تحليل الشارت</h2>
+    
+    <div class="chart-upload">
+        <h3>تحميل صورة الشارت</h3>
+        <form action="{{ url_for('analyze_chart') }}" method="post" enctype="multipart/form-data">
+            <div class="upload-area" id="drop-area">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>اسحب صورة الشارت هنا أو انقر للاختيار</p>
+                <input type="file" name="chart_image" id="chart-image" accept="image/*" style="display: none;">
+            </div>
+            
+            <div class="chart-options">
+                <label for="chart-type">نوع الشارت:</label>
+                <select name="chart_type" id="chart-type">
+                    <option value="forex">فوركس</option>
+                    <option value="crypto">عملات رقمية</option>
+                    <option value="stocks">أسهم</option>
+                    <option value="commodities">سلع</option>
+                    <option value="indices">مؤشرات</option>
+                </select>
+                
+                <div class="timeframe-selector">
+                    <div class="timeframe-option active" data-timeframe="D1">يومي (D1)</div>
+                    <div class="timeframe-option" data-timeframe="H4">4 ساعات (H4)</div>
+                    <div class="timeframe-option" data-timeframe="H1">ساعة (H1)</div>
+                    <div class="timeframe-option" data-timeframe="M15">15 دقيقة (M15)</div>
+                    <div class="timeframe-option" data-timeframe="M5">5 دقائق (M5)</div>
+                    <div class="timeframe-option" data-timeframe="M1">دقيقة واحدة (M1)</div>
+                </div>
+                <input type="hidden" name="timeframe" id="timeframe-input" value="D1">
+            </div>
+            
+            <button type="submit" class="btn btn-primary">تحليل الشارت</button>
+        </form>
+    </div>
+    
+    <div class="analysis-tips">
+        <h3>نصائح للحصول على أفضل تحليل:</h3>
+        <ul>
+            <li>استخدم صور شارت واضحة وعالية الدقة</li>
+            <li>تأكد من ظهور مؤشرات السعر والحجم بوضوح</li>
+            <li>اختر الفريم الزمني المناسب لاستراتيجية التداول الخاصة بك</li>
+            <li>للحصول على تحليل أكثر دقة، قم بتحميل صور شارت تظهر التاريخ السابق للسعر</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // File upload functionality
+    const dropArea = document.getElementById('drop-area');
+    const fileInput = document.getElementById('chart-image');
+    
+    dropArea.addEventListener('click', () => {
+        fileInput.click();
+    });
+    
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            dropArea.innerHTML = `
+                <i class="fas fa-check-circle"></i>
+                <p>تم اختيار الملف: ${fileInput.files[0].name}</p>
+            `;
+        }
+    });
+    
+    dropArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropArea.classList.add('active');
+    });
+    
+    dropArea.addEventListener('dragleave', () => {
+        dropArea.classList.remove('active');
+    });
+    
+    dropArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropArea.classList.remove('active');
+        
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            dropArea.innerHTML = `
+                <i class="fas fa-check-circle"></i>
+                <p>تم اختيار الملف: ${e.dataTransfer.files[0].name}</p>
+            `;
+        }
+    });
+    
+    // Timeframe selection
+    const timeframeOptions = document.querySelectorAll('.timeframe-option');
+    const timeframeInput = document.getElementById('timeframe-input');
+    
+    timeframeOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            timeframeOptions.forEach(opt => opt.classList.remove('active'));
+            option.classList.add('active');
+            timeframeInput.value = option.getAttribute('data-timeframe');
+        });
+    });
+</script>
+{% endblock %}

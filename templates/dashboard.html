@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+
+{% block title %}لوحة التحكم - Chicha AI{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="sidebar">
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('dashboard') }}" class="active"><i class="fas fa-tachometer-alt"></i> لوحة التحكم</a></li>
+            <li><a href="{{ url_for('analyze_chart') }}"><i class="fas fa-chart-line"></i> تحليل الشارت</a></li>
+            <li><a href="{{ url_for('chat') }}"><i class="fas fa-comments"></i> المحادثة الذكية</a></li>
+            <li><a href="{{ url_for('trading_plan') }}"><i class="fas fa-file-alt"></i> خطة التداول</a></li>
+            {% if current_user.username == 'admin' %}
+            <li><a href="#admin-section"><i class="fas fa-user-shield"></i> إدارة المستخدمين</a></li>
+            <li><a href="#settings-section"><i class="fas fa-cog"></i> إعدادات النظام</a></li>
+            {% endif %}
+            <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a></li>
+        </ul>
+    </div>
+    
+    <div class="dashboard-content">
+        <div class="dashboard-header">
+            <h2>مرحباً، {{ current_user.username }}</h2>
+            <span>{{ current_date }}</span>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>{{ analyses_count }}</h3>
+                <p>تحليلات الشارت</p>
+            </div>
+            <div class="stat-card">
+                <h3>85%</h3>
+                <p>نسبة نجاح الصفقات</p>
+            </div>
+            <div class="stat-card">
+                <h3>1:3</h3>
+                <p>نسبة المخاطرة إلى المكافأة</p>
+            </div>
+            <div class="stat-card">
+                <h3>{{ recent_analyses_count }}</h3>
+                <p>تحليلات جديدة اليوم</p>
+            </div>
+        </div>
+        
+        <div class="recent-analyses">
+            <div class="dashboard-header">
+                <h3>آخر التحليلات</h3>
+                <a href="{{ url_for('analyze_chart') }}" class="btn btn-primary">تحليل جديد</a>
+            </div>
+            
+            {% if analyses %}
+            <div class="analyses-list">
+                {% for analysis in analyses %}
+                <div class="analysis-item">
+                    <div class="analysis-info">
+                        <h4>{{ analysis.chart_type }}</h4>
+                        <p>{{ analysis.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    </div>
+                    <div class="analysis-details">
+                        <p><strong>نقطة الدخول:</strong> {{ analysis.entry_point }}</p>
+                        <p><strong>جني الأرباح:</strong> {{ analysis.take_profit }}</p>
+                        <p><strong>وقف الخسارة:</strong> {{ analysis.stop_loss }}</p>
+                    </div>
+                    <div class="analysis-actions">
+                        <a href="{{ url_for('analysis_result', analysis_id=analysis.id) }}" class="btn btn-outline">عرض التفاصيل</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="no-data">
+                <p>لا توجد تحليلات حتى الآن. قم بتحليل شارت جديد للبدء.</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if current_user.username == 'admin' %}
+        <div id="admin-section" class="admin-section">
+            <div class="dashboard-header">
+                <h3>إدارة المستخدمين</h3>
+                <button class="btn btn-primary" id="add-user-btn">إضافة مستخدم جديد</button>
+            </div>
+            
+            <div class="users-list">
+                {% for user in users %}
+                <div class="user-item">
+                    <div class="user-info">
+                        <h4>{{ user.username }}</h4>
+                        <p>{{ user.email }}</p>
+                        <p>تاريخ التسجيل: {{ user.created_at.strftime('%Y-%m-%d') }}</p>
+                    </div>
+                    <div class="user-actions">
+                        <button class="btn btn-outline edit-user" data-user-id="{{ user.id }}">تعديل</button>
+                        <button class="btn btn-danger delete-user" data-user-id="{{ user.id }}">حذف</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div id="settings-section" class="settings-section">
+            <div class="dashboard-header">
+                <h3>إعدادات النظام</h3>
+                <button class="btn btn-primary" id="save-settings-btn">حفظ الإعدادات</button>
+            </div>
+            
+            <div class="settings-form">
+                <div class="form-group">
+                    <label for="api-key">مفتاح OpenAI API</label>
+                    <input type="password" id="api-key" name="api_key" value="{{ api_key }}" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="success-rate">نسبة نجاح الصفقات المطلوبة</label>
+                    <input type="number" id="success-rate" name="success_rate" value="85" min="50" max="100" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="risk-reward">نسبة المخاطرة إلى المكافأة</label>
+                    <input type="text" id="risk-reward" name="risk_reward" value="1:3" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="default-timeframe">الفريم الزمني الافتراضي</label>
+                    <select id="default-timeframe" name="default_timeframe" class="form-control">
+                        <option value="D1">يومي (D1)</option>
+                        <option value="H4">4 ساعات (H4)</option>
+                        <option value="H1">ساعة (H1)</option>
+                        <option value="M15" selected>15 دقيقة (M15)</option>
+                        <option value="M5">5 دقائق (M5)</option>
+                        <option value="M1">دقيقة واحدة (M1)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal for adding/editing users -->
+<div class="modal-overlay" id="user-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modal-title">إضافة مستخدم جديد</h3>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="user-form">
+                <input type="hidden" id="user-id" name="user_id">
+                <div class="form-group">
+                    <label for="username">اسم المستخدم</label>
+                    <input type="text" id="username" name="username" required class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="email">البريد الإلكتروني</label>
+                    <input type="email" id="email" name="email" required class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="password">كلمة المرور</label>
+                    <input type="password" id="password" name="password" class="form-control">
+                    <small>اتركه فارغاً إذا كنت لا ترغب في تغيير كلمة المرور</small>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline modal-close-btn">إلغاء</button>
+            <button class="btn btn-primary" id="save-user-btn">حفظ</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // User modal functionality
+    const addUserBtn = document.getElementById('add-user-btn');
+    const userModal = document.getElementById('user-modal');
+    const modalCloseBtn = document.querySelector('.modal-close');
+    const modalCloseBtnFooter = document.querySelector('.modal-close-btn');
+    const saveUserBtn = document.getElementById('save-user-btn');
+    const userForm = document.getElementById('user-form');
+    const modalTitle = document.getElementById('modal-title');
+    
+    if (addUserBtn) {
+        addUserBtn.addEventListener('click', () => {
+            modalTitle.textContent = 'إضافة مستخدم جديد';
+            userForm.reset();
+            document.getElementById('user-id').value = '';
+            userModal.classList.add('active');
+        });
+    }
+    
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', () => {
+            userModal.classList.remove('active');
+        });
+    }
+    
+    if (modalCloseBtnFooter) {
+        modalCloseBtnFooter.addEventListener('click', () => {
+            userModal.classList.remove('active');
+        });
+    }
+    
+    // Edit user buttons
+    const editUserBtns = document.querySelectorAll('.edit-user');
+    editUserBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const userId = btn.getAttribute('data-user-id');
+            modalTitle.textContent = 'تعديل بيانات المستخدم';
+            
+            // Here you would fetch user data from the server
+            // For now, we'll just show the modal with empty fields
+            document.getElementById('user-id').value = userId;
+            userModal.classList.add('active');
+        });
+    });
+    
+    // Delete user buttons
+    const deleteUserBtns = document.querySelectorAll('.delete-user');
+    deleteUserBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const userId = btn.getAttribute('data-user-id');
+            if (confirm('هل أنت متأكد من رغبتك في حذف هذا المستخدم؟')) {
+                // Here you would send a request to delete the user
+                console.log('Deleting user with ID:', userId);
+            }
+        });
+    });
+    
+    // Save settings button
+    const saveSettingsBtn = document.getElementById('save-settings-btn');
+    if (saveSettingsBtn) {
+        saveSettingsBtn.addEventListener('click', () => {
+            // Here you would send a request to save the settings
+            alert('تم حفظ الإعدادات بنجاح');
+        });
+    }
+</script>
+{% endblock %}

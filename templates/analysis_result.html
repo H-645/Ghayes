@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}نتائج التحليل - Chicha AI{% endblock %}
+
+{% block content %}
+<div class="analysis-result-page">
+    <h2>نتائج تحليل الشارت</h2>
+    
+    <div class="chart-container">
+        <img src="{{ url_for('static', filename=analysis.image_path) }}" alt="Chart Image" class="chart-image">
+        <div class="chart-overlay">
+            <div class="chart-marker marker-entry" style="top: 50%; left: 40%;" title="نقطة الدخول: {{ data.entry_point }}"></div>
+            <div class="chart-marker marker-exit" style="top: 30%; left: 60%;" title="جني الأرباح: {{ data.take_profit }}"></div>
+            <div class="chart-marker marker-stop" style="top: 60%; left: 40%;" title="وقف الخسارة: {{ data.stop_loss }}"></div>
+        </div>
+    </div>
+    
+    <div class="analysis-result">
+        <h3>نتائج التحليل</h3>
+        
+        <div class="result-grid">
+            <div class="result-item">
+                <h4>نوع الشارت</h4>
+                <p>{{ analysis.chart_type }}</p>
+            </div>
+            <div class="result-item">
+                <h4>الاتجاه</h4>
+                <p>{{ data.trend }}</p>
+            </div>
+            <div class="result-item">
+                <h4>قوة الاتجاه</h4>
+                <p>{{ data.strength }}</p>
+            </div>
+            <div class="result-item positive">
+                <h4>نقطة الدخول</h4>
+                <p>{{ data.entry_point }}</p>
+            </div>
+            <div class="result-item positive">
+                <h4>جني الأرباح</h4>
+                <p>{{ data.take_profit }}</p>
+            </div>
+            <div class="result-item negative">
+                <h4>وقف الخسارة</h4>
+                <p>{{ data.stop_loss }}</p>
+            </div>
+            <div class="result-item">
+                <h4>نسبة المخاطرة إلى المكافأة</h4>
+                <p>{{ data.risk_reward_ratio }}</p>
+            </div>
+            <div class="result-item">
+                <h4>التوصية</h4>
+                <p>{{ data.recommendation }}</p>
+            </div>
+            <div class="result-item">
+                <h4>نسبة الثقة</h4>
+                <p>{{ data.confidence }}%</p>
+            </div>
+        </div>
+        
+        <div class="support-resistance">
+            <div class="support">
+                <h4>مستويات الدعم</h4>
+                <ul>
+                    {% for level in data.support_levels %}
+                    <li>{{ level }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="resistance">
+                <h4>مستويات المقاومة</h4>
+                <ul>
+                    {% for level in data.resistance_levels %}
+                    <li>{{ level }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <div class="analysis-text">
+            <h4>التحليل التفصيلي</h4>
+            <p>{{ data.analysis_text }}</p>
+        </div>
+        
+        <div class="analysis-actions">
+            <a href="{{ url_for('analyze_chart') }}" class="btn btn-outline">تحليل شارت جديد</a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">العودة للوحة التحكم</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
