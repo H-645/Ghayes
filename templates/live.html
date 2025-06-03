@@ -1,0 +1,332 @@
+{% extends 'base.html' %}
+
+{% block title %}بيانات السوق الحية - Chicha AI{% endblock %}
+
+{% block content %}
+<div class="market-live-container">
+    <h2>بيانات السوق الحية</h2>
+    
+    <div class="market-search">
+        <div class="search-form">
+            <input type="text" id="symbol-search" placeholder="ابحث عن رمز (مثال: AAPL, BTC/USD)">
+            <select id="provider-select">
+                <option value="alphavantage">Alpha Vantage</option>
+                <option value="finnhub">Finnhub</option>
+            </select>
+            <button id="search-btn" class="btn btn-primary">بحث</button>
+        </div>
+        <div id="search-results" class="search-results"></div>
+    </div>
+    
+    <div class="market-data-container">
+        <div class="market-quote">
+            <h3>معلومات السوق الحالية</h3>
+            <div id="quote-container">
+                <div class="placeholder-text">اختر رمزاً للعرض</div>
+            </div>
+        </div>
+        
+        <div class="market-chart">
+            <h3>رسم بياني للسعر</h3>
+            <div class="chart-controls">
+                <select id="interval-select">
+                    <option value="1min">دقيقة</option>
+                    <option value="5min">5 دقائق</option>
+                    <option value="15min" selected>15 دقيقة</option>
+                    <option value="30min">30 دقيقة</option>
+                    <option value="60min">ساعة</option>
+                    <option value="daily">يومي</option>
+                    <option value="weekly">أسبوعي</option>
+                    <option value="monthly">شهري</option>
+                </select>
+                <button id="refresh-btn" class="btn btn-outline">تحديث</button>
+            </div>
+            <div id="chart-container" class="chart-area">
+                <div class="placeholder-text">اختر رمزاً للعرض</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="market-analysis">
+        <h3>تحليل السوق</h3>
+        <div id="analysis-container">
+            <div class="placeholder-text">اختر رمزاً للتحليل</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let currentSymbol = '';
+    let currentProvider = 'alphavantage';
+    let currentInterval = '15min';
+    let priceChart = null;
+    
+    // عناصر DOM
+    const symbolSearch = document.getElementById('symbol-search');
+    const providerSelect = document.getElementById('provider-select');
+    const searchBtn = document.getElementById('search-btn');
+    const searchResults = document.getElementById('search-results');
+    const quoteContainer = document.getElementById('quote-container');
+    const chartContainer = document.getElementById('chart-container');
+    const analysisContainer = document.getElementById('analysis-container');
+    const intervalSelect = document.getElementById('interval-select');
+    const refreshBtn = document.getElementById('refresh-btn');
+    
+    // البحث عن رمز
+    searchBtn.addEventListener('click', () => {
+        const query = symbolSearch.value.trim();
+        if (!query) return;
+        
+        currentProvider = providerSelect.value;
+        
+        searchResults.innerHTML = '<div class="loading">جاري البحث...</div>';
+        
+        fetch(`/api/market/search?query=${encodeURIComponent(query)}&provider=${currentProvider}`)
+            .then(response => response.json())
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    searchResults.innerHTML = '';
+                    data.forEach(result => {
+                        const resultItem = document.createElement('div');
+                        resultItem.className = 'search-result-item';
+                        resultItem.innerHTML = `
+                            <div class="result-symbol">${result.symbol}</div>
+                            <div class="result-name">${result.name}</div>
+                        `;
+                        resultItem.addEventListener('click', () => {
+                            currentSymbol = result.symbol;
+                            symbolSearch.value = result.symbol;
+                            searchResults.innerHTML = '';
+                            loadMarketData();
+                        });
+                        searchResults.appendChild(resultItem);
+                    });
+                } else {
+                    searchResults.innerHTML = '<div class="no-results">لا توجد نتائج</div>';
+                }
+            })
+            .catch(error => {
+                searchResults.innerHTML = `<div class="error">خطأ في البحث: ${error.message}</div>`;
+            });
+    });
+    
+    // تحميل بيانات السوق
+    function loadMarketData() {
+        if (!currentSymbol) return;
+        
+        // تحميل الاقتباس الحالي
+        quoteContainer.innerHTML = '<div class="loading">جاري تحميل البيانات...</div>';
+        
+        fetch(`/api/market/quote?symbol=${currentSymbol}&provider=${currentProvider}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    quoteContainer.innerHTML = `<div class="error">${data.error}</div>`;
+                    return;
+                }
+                
+                const changeClass = parseFloat(data.change) >= 0 ? 'positive' : 'negative';
+                
+                quoteContainer.innerHTML = `
+                    <div class="quote-header">
+                        <h4>${data.symbol}</h4>
+                        <span class="last-updated">آخر تحديث: ${data.last_updated}</span>
+                    </div>
+                    <div class="quote-price">${data.price}</div>
+                    <div class="quote-change ${changeClass}">
+                        ${data.change} (${data.change_percent})
+                    </div>
+                    <div class="quote-volume">
+                        <span>الحجم:</span>
+                        <span>${data.volume}</span>
+                    </div>
+                `;
+                
+                // تحميل الرسم البياني
+                loadChart();
+                
+                // تحميل التحليل
+                loadAnalysis();
+            })
+            .catch(error => {
+                quoteContainer.innerHTML = `<div class="error">خطأ في تحميل البيانات: ${error.message}</div>`;
+            });
+    }
+    
+    // تحميل الرسم البياني
+    function loadChart() {
+        chartContainer.innerHTML = '<div class="loading">جاري تحميل الرسم البياني...</div>';
+        
+        currentInterval = intervalSelect.value;
+        
+        fetch(`/api/market/candles?symbol=${currentSymbol}&interval=${currentInterval}&provider=${currentProvider}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    chartContainer.innerHTML = `<div class="error">${data.error}</div>`;
+                    return;
+                }
+                
+                const candles = data.candles;
+                if (!candles || candles.length === 0) {
+                    chartContainer.innerHTML = '<div class="no-data">لا توجد بيانات متاحة</div>';
+                    return;
+                }
+                
+                // تحضير بيانات الرسم البياني
+                const labels = candles.map(candle => candle.time);
+                const prices = candles.map(candle => candle.close);
+                
+                // إنشاء عنصر canvas للرسم البياني
+                chartContainer.innerHTML = '<canvas id="price-chart"></canvas>';
+                const ctx = document.getElementById('price-chart').getContext('2d');
+                
+                // إنشاء الرسم البياني
+                if (priceChart) {
+                    priceChart.destroy();
+                }
+                
+                priceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: `سعر ${currentSymbol}`,
+                            data: prices,
+                            borderColor: '#4CAF50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                chartContainer.innerHTML = `<div class="error">خطأ في تحميل الرسم البياني: ${error.message}</div>`;
+            });
+    }
+    
+    // تحميل التحليل
+    function loadAnalysis() {
+        analysisContainer.innerHTML = '<div class="loading">جاري تحليل البيانات...</div>';
+        
+        fetch(`/api/market/analyze?symbol=${currentSymbol}&interval=${currentInterval}&provider=${currentProvider}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    analysisContainer.innerHTML = `<div class="error">${data.error}</div>`;
+                    return;
+                }
+                
+                const trendClass = data.trend === 'صاعد' ? 'positive' : (data.trend === 'هابط' ? 'negative' : 'neutral');
+                const recommendationClass = data.recommendation === 'شراء' ? 'positive' : (data.recommendation === 'بيع' ? 'negative' : 'neutral');
+                
+                analysisContainer.innerHTML = `
+                    <div class="analysis-header">
+                        <h4>تحليل ${data.symbol} (${data.interval})</h4>
+                    </div>
+                    <div class="analysis-grid">
+                        <div class="analysis-item">
+                            <span class="item-label">الاتجاه:</span>
+                            <span class="item-value ${trendClass}">${data.trend}</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="item-label">قوة الاتجاه:</span>
+                            <span class="item-value">${data.strength}</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="item-label">السعر الحالي:</span>
+                            <span class="item-value">${data.current_price}</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="item-label">المتوسط المتحرك (20):</span>
+                            <span class="item-value">${data.ma_20}</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="item-label">المتوسط المتحرك (50):</span>
+                            <span class="item-value">${data.ma_50}</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="item-label">نقطة الدخول:</span>
+                            <span class="item-value highlight">${data.entry_point}</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="item-label">جني الأرباح:</span>
+                            <span class="item-value positive">${data.take_profit}</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="item-label">وقف الخسارة:</span>
+                            <span class="item-value negative">${data.stop_loss}</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="item-label">نسبة المخاطرة إلى المكافأة:</span>
+                            <span class="item-value">${data.risk_reward_ratio}</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="item-label">نسبة الثقة:</span>
+                            <span class="item-value">${data.confidence}%</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="item-label">التوصية:</span>
+                            <span class="item-value ${recommendationClass} highlight">${data.recommendation}</span>
+                        </div>
+                    </div>
+                    <div class="analysis-levels">
+                        <div class="support-levels">
+                            <h5>مستويات الدعم</h5>
+                            <ul>
+                                ${data.support_levels.map(level => `<li>${level}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="resistance-levels">
+                            <h5>مستويات المقاومة</h5>
+                            <ul>
+                                ${data.resistance_levels.map(level => `<li>${level}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="analysis-text">
+                        <h5>التحليل التفصيلي</h5>
+                        <pre>${data.analysis_text}</pre>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                analysisContainer.innerHTML = `<div class="error">خطأ في تحليل البيانات: ${error.message}</div>`;
+            });
+    }
+    
+    // تحديث البيانات عند تغيير الفاصل الزمني
+    intervalSelect.addEventListener('change', () => {
+        if (currentSymbol) {
+            loadChart();
+            loadAnalysis();
+        }
+    });
+    
+    // تحديث البيانات عند النقر على زر التحديث
+    refreshBtn.addEventListener('click', () => {
+        if (currentSymbol) {
+            loadMarketData();
+        }
+    });
+    
+    // تحميل البيانات الافتراضية عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', () => {
+        // يمكن تحميل بيانات افتراضية هنا إذا لزم الأمر
+    });
+</script>
+{% endblock %}
