@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}الرئيسية - Chicha AI{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h2>Chicha AI - الذكاء الاصطناعي للتداول</h2>
+    <p>منصة متقدمة لتحليل الشارت وتقديم توصيات التداول بدقة عالية تصل إلى 85% مع نسبة مخاطرة إلى مكافأة 1:3</p>
+    <div>
+        <a href="{{ url_for('register') }}" class="btn btn-primary">ابدأ الآن</a>
+        <a href="#features" class="btn btn-outline">تعرف على المزيد</a>
+    </div>
+</section>
+
+<section id="features" class="features">
+    <div class="feature-card">
+        <i class="fas fa-chart-line"></i>
+        <h3>تحليل صور الشارت بدقة عالية</h3>
+        <p>تحليل متقدم لصور الشارت مع ترجمة البيانات الفنية للعربية وتحديد مناطق العرض والطلب وفق استراتيجية SMC.</p>
+    </div>
+    <div class="feature-card">
+        <i class="fas fa-clock"></i>
+        <h3>تحليل جميع الفريمات الزمنية</h3>
+        <p>تحليل متكامل لجميع الفريمات الزمنية من اليومي إلى الدقيقة الواحدة مع تحديد نقاط الدخول الدقيقة.</p>
+    </div>
+    <div class="feature-card">
+        <i class="fas fa-robot"></i>
+        <h3>نظام محادثة ذكي</h3>
+        <p>تفاعل مع نظام محادثة ذكي يمكنك من طرح استفساراتك حول التداول والحصول على إجابات دقيقة.</p>
+    </div>
+    <div class="feature-card">
+        <i class="fas fa-lock"></i>
+        <h3>حماية بكلمة مرور</h3>
+        <p>نظام حماية متقدم لضمان الخصوصية والتحكم في الوصول إلى البيانات والتحليلات.</p>
+    </div>
+    <div class="feature-card">
+        <i class="fas fa-tachometer-alt"></i>
+        <h3>لوحة تحكم احترافية</h3>
+        <p>لوحة تحكم متكاملة لمتابعة التحليلات والصفقات وإدارة استراتيجية التداول الخاصة بك.</p>
+    </div>
+    <div class="feature-card">
+        <i class="fas fa-sync"></i>
+        <h3>دعم مستقبلي للبيانات الحية</h3>
+        <p>قريباً: ربط مع بيانات السوق الحية لمراقبة الأسواق على مدار الساعة وإرسال إشعارات ذكية.</p>
+    </div>
+</section>
+
+<section class="founder-section">
+    <div class="founder-card">
+        <h2>عن المؤسس</h2>
+        <div class="founder-info">
+            <img src="{{ url_for('static', filename='img/founder.png') }}" alt="محمد عوكل" class="founder-image">
+            <div class="founder-details">
+                <h3>محمد عوكل</h3>
+                <p class="founder-title">مؤسس Chicha AI</p>
+                <p class="founder-bio">خبير في تحليل الأسواق المالية وتطوير استراتيجيات التداول المتقدمة. يجمع بين خبرة التداول العملية والمعرفة العميقة بتقنيات الذكاء الاصطناعي لتقديم حلول تداول فعالة ودقيقة.</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
